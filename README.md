@@ -1,2 +1,2 @@
 # migo
-A db migrations library for go
+A sql db migrations library for go
