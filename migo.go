@@ -49,8 +49,7 @@ func Migrate(db *sql.DB, fsys fs.FS) error {
 }
 
 func createMetadataTable(db *sql.DB) error {
-	// TODO: fix syntax error
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS ? (id VARCHAR(?) PRIMARY KEY);", metadataTableName, idLength)
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + metadataTableName + " (id VARCHAR(" + fmt.Sprint(idLength) + ") PRIMARY KEY)")
 	return err
 }
 
