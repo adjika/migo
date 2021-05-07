@@ -53,6 +53,11 @@ func createMetadataTable(db *sql.DB) error {
 	return err
 }
 
+func dropMetadataTable(db *sql.DB) error {
+	_, err := db.Exec("DROP TABLE IF EXISTS " + metadataTableName)
+	return err
+}
+
 func getMigrationId(filename string) (string, error) {
 	if !strings.HasSuffix(filename, ".sql") {
 		return "-1", fmt.Errorf("not a sql file, %v", filename)
