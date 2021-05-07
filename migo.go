@@ -48,6 +48,11 @@ func Migrate(db *sql.DB, fsys fs.FS) error {
 	return MigrateCtx(context.TODO(), db, fsys)
 }
 
+// Purge deletes all migo specific information from the db, leaving previously run migrations intact
+func Purge(db *sql.DB) error {
+	return dropMetadataTable(db)
+}
+
 func createMetadataTable(db *sql.DB) error {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + metadataTableName + " (id int PRIMARY KEY, name VARCHAR(" + fmt.Sprint(idLength) + ") UNIQUE, migrated_at VARCHAR(30))")
 	return err
