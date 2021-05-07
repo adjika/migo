@@ -49,7 +49,7 @@ func Migrate(db *sql.DB, fsys fs.FS) error {
 }
 
 func createMetadataTable(db *sql.DB) error {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + metadataTableName + " (id VARCHAR(" + fmt.Sprint(idLength) + ") PRIMARY KEY)")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + metadataTableName + " (id int PRIMARY KEY, name VARCHAR(" + fmt.Sprint(idLength) + ") UNIQUE, migrated_at VARCHAR(30))")
 	return err
 }
 
