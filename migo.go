@@ -31,8 +31,8 @@ func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 	}
 
 	for _, migrationFile := range migrationFiles {
-		if migrationFile.Type().IsRegular() {
-			id, err := getMigrationId(migrationFile.Name())
+		if migrationFile.Type().IsRegular() && isMigrationFile(migrationFile.Name()) {
+			id, err := getId(migrationFile.Name())
 			if err != nil {
 				continue
 			}
@@ -63,14 +63,10 @@ func dropMetadataTable(db *sql.DB) error {
 	return err
 }
 
-func getMigrationId(filename string) (int, error) {
+func getId(filename string) (int, error) {
 	if !strings.HasSuffix(filename, ".sql") {
 		return -1, fmt.Errorf("not a sql file, %v", filename)
 	}
-	if strings.HasSuffix(filename, "_rollback.sql") {
-		return -1, fmt.Errorf("rollback file, %v", filename)
-	}
-	filename = strings.TrimSuffix(filename, ".sql")
 
 	id, err := strconv.Atoi(strings.Split(filename, "_")[0])
 	if err != nil {
@@ -80,19 +76,32 @@ func getMigrationId(filename string) (int, error) {
 	return id, nil
 }
 
-func getRollbackId(filename string) (int, error) {
+func isMigrationFile(filename string) bool {
 	if !strings.HasSuffix(filename, ".sql") {
-		return -1, fmt.Errorf("not a sql file, %v", filename)
+		return false
+	}
+	if strings.HasSuffix(filename, "_rollback.sql") {
+		return false
+	}
+
+	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func isRollbackFile(filename string) bool {
+	if !strings.HasSuffix(filename, ".sql") {
+		return false
 	}
 	if !strings.HasSuffix(filename, "_rollback.sql") {
-		return -1, fmt.Errorf("not a rollback file, %v", filename)
-	}
-	filename = strings.TrimSuffix(filename, "_rollback.sql")
-
-	id, err := strconv.Atoi(strings.Split(filename, "_")[0])
-	if err != nil {
-		return -1, fmt.Errorf("filename is not prefixed by an integer, %v", filename)
+		return false
 	}
 
-	return id, nil
+	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
+		return false
+	}
+
+	return true
 }
