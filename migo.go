@@ -63,42 +63,36 @@ func dropMetadataTable(db *sql.DB) error {
 	return err
 }
 
-func getMigrationId(filename string) (string, error) {
+func getMigrationId(filename string) (int, error) {
 	if !strings.HasSuffix(filename, ".sql") {
-		return "-1", fmt.Errorf("not a sql file, %v", filename)
+		return -1, fmt.Errorf("not a sql file, %v", filename)
 	}
 	if strings.HasSuffix(filename, "_rollback.sql") {
-		return "-1", fmt.Errorf("rollback file, %v", filename)
+		return -1, fmt.Errorf("rollback file, %v", filename)
 	}
 	filename = strings.TrimSuffix(filename, ".sql")
 
-	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
-		return "-1", fmt.Errorf("filename is not prefixed by an integer, %v", filename)
+	id, err := strconv.Atoi(strings.Split(filename, "_")[0])
+	if err != nil {
+		return -1, fmt.Errorf("filename is not prefixed by an integer, %v", filename)
 	}
 
-	if len(filename) > 100 {
-		filename = filename[0:99]
-	}
-
-	return filename, nil
+	return id, nil
 }
 
-func getRollbackId(filename string) (string, error) {
+func getRollbackId(filename string) (int, error) {
 	if !strings.HasSuffix(filename, ".sql") {
-		return "-1", fmt.Errorf("not a sql file, %v", filename)
+		return -1, fmt.Errorf("not a sql file, %v", filename)
 	}
 	if !strings.HasSuffix(filename, "_rollback.sql") {
-		return "-1", fmt.Errorf("not a rollback file, %v", filename)
+		return -1, fmt.Errorf("not a rollback file, %v", filename)
 	}
 	filename = strings.TrimSuffix(filename, "_rollback.sql")
 
-	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
-		return "-1", fmt.Errorf("filename is not prefixed by an integer, %v", filename)
+	id, err := strconv.Atoi(strings.Split(filename, "_")[0])
+	if err != nil {
+		return -1, fmt.Errorf("filename is not prefixed by an integer, %v", filename)
 	}
 
-	if len(filename) > 100 {
-		filename = filename[0:99]
-	}
-
-	return filename, nil
+	return id, nil
 }
