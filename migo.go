@@ -36,8 +36,13 @@ func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 			if err != nil {
 				continue
 			}
-			// do stuff.. for now just print the id
-			fmt.Println(id)
+
+			needsMigration, err := needsMigration(ctx, db, id)
+			if err != nil || !needsMigration {
+				continue
+			}
+			// do stuff.. for now just print the filename
+			fmt.Printf("Migrating %v\n", migrationFile.Name())
 		}
 	}
 	return nil
@@ -68,6 +73,7 @@ func getId(filename string) (int, error) {
 		return -1, fmt.Errorf("not a sql file, %v", filename)
 	}
 
+	filename = strings.TrimSuffix(filename, ".sql")
 	id, err := strconv.Atoi(strings.Split(filename, "_")[0])
 	if err != nil {
 		return -1, fmt.Errorf("filename is not prefixed by an integer, %v", filename)
@@ -77,6 +83,7 @@ func getId(filename string) (int, error) {
 }
 
 func isMigrationFile(filename string) bool {
+
 	if !strings.HasSuffix(filename, ".sql") {
 		return false
 	}
@@ -84,7 +91,7 @@ func isMigrationFile(filename string) bool {
 		return false
 	}
 
-	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
+	if _, err := getId(filename); err != nil {
 		return false
 	}
 
@@ -99,9 +106,19 @@ func isRollbackFile(filename string) bool {
 		return false
 	}
 
-	if _, err := strconv.Atoi(strings.Split(filename, "_")[0]); err != nil {
+	if _, err := getId(filename); err != nil {
 		return false
 	}
 
 	return true
+}
+
+func needsMigration(ctx context.Context, db *sql.DB, id int) (bool, error) {
+	var hits int
+	err := db.QueryRowContext(ctx, "SELECT COUNT(id) FROM "+metadataTableName+" WHERE id=$1", id).Scan(&hits)
+	if err != nil || hits >= 1 {
+		return false, err
+	}
+
+	return true, err
 }
