@@ -5,13 +5,17 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"log"
+	"path"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
 	idLength          = 100
 	metadataTableName = "migo_metadata"
+	migrationsFolder  = "migrations"
 )
 
 // MigrateCtx takes a fs.FS containing sql files and runs all .sql files
@@ -25,7 +29,7 @@ func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		return fmt.Errorf("could not create or check for metadata table: %w", err)
 	}
 
-	migrationFiles, err := fs.ReadDir(fsys, "migrations")
+	migrationFiles, err := fs.ReadDir(fsys, migrationsFolder)
 	if err != nil {
 		return err
 	}
@@ -42,7 +46,12 @@ func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 				continue
 			}
 			// do stuff.. for now just print the filename
-			fmt.Printf("Migrating %v\n", migrationFile.Name())
+			err = migrateFile(ctx, db, fsys, migrationFile.Name())
+			if err != nil {
+				fmt.Printf("Error migrating %v, error: %v\n", migrationFile.Name(), err)
+			} else {
+				fmt.Printf("Migrated %v\n", migrationFile.Name())
+			}
 		}
 	}
 	return nil
@@ -56,6 +65,24 @@ func Migrate(db *sql.DB, fsys fs.FS) error {
 // Purge deletes all migo specific information from the db, leaving previously run migrations intact
 func Purge(db *sql.DB) error {
 	return dropMetadataTable(db)
+}
+
+func addMetadataEntry(ctx context.Context, tx *sql.Tx, filename string) error {
+	id, err := getId(filename)
+	if err != nil {
+		return err
+	}
+	if len(filename) > idLength {
+		filename = filename[:idLength-1]
+	}
+
+	currentTimestamp := time.Now().Format(time.RFC3339)
+	_, err = tx.ExecContext(ctx, "INSERT INTO "+metadataTableName+" (id, name, migrated_at) VALUES ($1, $2, $3)", id, filename, currentTimestamp)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func createMetadataTable(db *sql.DB) error {
@@ -111,6 +138,40 @@ func isRollbackFile(filename string) bool {
 	}
 
 	return true
+}
+
+// file must be a regular file containing sql commands
+func migrateFile(ctx context.Context, db *sql.DB, fsys fs.FS, filename string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	queryAsByteSlice, err := fs.ReadFile(fsys, path.Join(migrationsFolder, filename))
+	if err != nil {
+		return err
+	}
+
+	err = addMetadataEntry(ctx, tx, filename)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Fatalf("unable to rollback failed adding of metadata entries for file %v, error: %v", filename, rollbackErr)
+		}
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, string(queryAsByteSlice))
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Fatalf("unable to rollback failed migration for file %v, error: %v", filename, rollbackErr)
+		}
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func needsMigration(ctx context.Context, db *sql.DB, id int) (bool, error) {
