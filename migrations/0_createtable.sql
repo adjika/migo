@@ -1,0 +1,1 @@
+CREATE TABLE testdata (id serial, name text);

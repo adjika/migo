@@ -1,0 +1,1 @@
+DROP TABLE testdata (id serial, name text);

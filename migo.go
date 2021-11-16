@@ -24,7 +24,7 @@ const (
 // an underscore and a description, and end with .sql.
 // Migration files must not end with _rollback.sql
 func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
-	err := createMetadataTable(db)
+	err := createMetadataTable(ctx, db)
 	if err != nil {
 		return fmt.Errorf("could not create or check for metadata table: %w", err)
 	}
@@ -45,7 +45,7 @@ func MigrateCtx(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 			if err != nil || !needsMigration {
 				continue
 			}
-			// do stuff.. for now just print the filename
+
 			err = migrateFile(ctx, db, fsys, migrationFile.Name())
 			if err != nil {
 				fmt.Printf("Error migrating %v, error: %v\n", migrationFile.Name(), err)
@@ -62,9 +62,14 @@ func Migrate(db *sql.DB, fsys fs.FS) error {
 	return MigrateCtx(context.TODO(), db, fsys)
 }
 
-// Purge deletes all migo specific information from the db, leaving previously run migrations intact
+// PurgeCtx deletes all migo specific information from the db, leaving previously run migrations intact
+func PurgeCtx(ctx context.Context, db *sql.DB) error {
+	return dropMetadataTable(ctx, db)
+}
+
+// Purge is equivalent to calling PurgeCtx(context.TODO(), db)
 func Purge(db *sql.DB) error {
-	return dropMetadataTable(db)
+	return PurgeCtx(context.TODO(), db)
 }
 
 func addMetadataEntry(ctx context.Context, tx *sql.Tx, filename string) error {
@@ -85,13 +90,13 @@ func addMetadataEntry(ctx context.Context, tx *sql.Tx, filename string) error {
 	return nil
 }
 
-func createMetadataTable(db *sql.DB) error {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + metadataTableName + " (id int PRIMARY KEY, name VARCHAR(" + fmt.Sprint(idLength) + ") UNIQUE, migrated_at VARCHAR(30))")
+func createMetadataTable(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+metadataTableName+" (id int PRIMARY KEY, name VARCHAR("+fmt.Sprint(idLength)+") UNIQUE, migrated_at VARCHAR(30))")
 	return err
 }
 
-func dropMetadataTable(db *sql.DB) error {
-	_, err := db.Exec("DROP TABLE IF EXISTS " + metadataTableName)
+func dropMetadataTable(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS "+metadataTableName)
 	return err
 }
 
