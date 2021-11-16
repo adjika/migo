@@ -5,18 +5,20 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/adjika/migo"
 	_ "github.com/lib/pq"
 )
 
-const (
+var (
 	host     = "localhost"
 	port     = 5432
 	user     = "postgres"
 	password = "postgres"
-	dbname   = "lastminutewatch_dev"
+	dbname   = "migo_testdata"
 )
 
 //go:embed migrations
@@ -24,6 +26,24 @@ var migrationDir embed.FS
 
 func TestMigrateCtx(t *testing.T) {
 	var count int
+
+	if hostenv, present := os.LookupEnv("POSTGRES_HOST"); present {
+		host = hostenv
+	}
+	if portenv, present := os.LookupEnv("POSTGRES_PORT"); present {
+		if i, err := strconv.Atoi(portenv); err == nil {
+			port = i
+		}
+	}
+	if userenv, present := os.LookupEnv("POSTGRES_USER"); present {
+		user = userenv
+	}
+	if passwordenv, present := os.LookupEnv("POSTGRES_PASSWORD"); present {
+		password = passwordenv
+	}
+	if dbnameenv, present := os.LookupEnv("POSTGRES_DBNAME"); present {
+		dbname = dbnameenv
+	}
 
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
